@@ -1,5 +1,11 @@
 # Parking Lot System - High-Level Design Plan
 
+## Current Status
+- Step 1 (High-level design) : Completed
+- Step 3 (Model classes only) : Completed
+- Current project state: Model classes have been created in `src/main/java/com/parkinglot/model/ParkingLotModel.java` using a single main model class with nested static classes and enums.
+- Next expected phase: Step 2/Review of model layer, then Step 5 logic implementation and tests.
+
 ## 1. Objective
 Build a Java-based parking lot system that supports:
 - Vehicle entry and parking spot allocation
@@ -106,7 +112,7 @@ Represents a motor vehicle entering the lot.
 - `id` (UUID)
 - `licensePlate` (String, unique)
 - `vehicleType` (VehicleType enum: CAR, MOTORCYCLE, TRUCK, ELECTRIC_CAR)
-- `color` (String)
+- `color` (VehicleColor enum)
 - `ownerName` (String, optional)
 - `createdAt` (LocalDateTime)
 
@@ -240,10 +246,10 @@ Represents the admin-controlled configuration.
 - Validate parking capacity
 
 **Key methods:**
-- `ParkingTicket parkVehicle(Vehicle vehicle)` — Main entry point
-- `void checkOut(String ticketId, PaymentMethod method)` — Main exit point
-- `boolean isLotFull()` — Capacity check
-- `List<ParkingSpot> getAvailableSpots()` — Query current availability
+- `ParkingTicket parkVehicle(Vehicle vehicle)`
+- `void checkOut(String ticketId, PaymentMethod method)`
+- `boolean isLotFull()`
+- `List<ParkingSpot> getAvailableSpots()`
 
 **Scope:**
 - Traffic flow and entry/exit orchestration
@@ -251,138 +257,9 @@ Represents the admin-controlled configuration.
 
 ---
 
-### 4.2 ParkingSpotManager / SpotAssignmentService
-**Responsible for finding appropriate spots.**
-
-**Responsibilities:**
-- Determine if a spot matches vehicle and rules
-- Sort and choose the best available spot
-- Maintain availability state
-
-**Key methods:**
-- `ParkingSpot findAvailableSpot(Vehicle vehicle)` — Find best compatible spot
-- `boolean isSpotCompatible(ParkingSpot spot, Vehicle vehicle)` — Validate compatibility
-- `void reserveSpot(ParkingSpot spot, Vehicle vehicle)` — Mark spot occupied
-- `void releaseSpot(ParkingSpot spot)` — Mark spot available
-
-**Scope:**
-- Allocation logic only
-- No payment logic
-- No ticket creation beyond assignment support
-
----
-
-### 4.3 TicketService / ParkingSessionService
-**Responsible for managing parking sessions.**
-
-**Responsibilities:**
-- Create tickets
-- Update ticket status
-- Track active sessions
-- Link vehicle to allocated spot and times
-
-**Key methods:**
-- `ParkingTicket createTicket(Vehicle vehicle, ParkingSpot spot)` — Create new entry ticket
-- `ParkingTicket getActiveTicketByVehicleId(String vehicleId)` — Fetch active session
-- `ParkingTicket getTicketById(String ticketId)` — Retrieve ticket details
-- `void updateTicketExitTime(String ticketId)` — Record exit time
-
-**Scope:**
-- Lifecycle of a parking session
-- No direct charge calculation
-
----
-
-### 4.4 PaymentService
-**Handles payment computation and processing.**
-
-**Responsibilities:**
-- Calculate parking duration
-- Fetch relevant pricing rules
-- Compute total amount
-- Process payment details
-- Update payment status
-
-**Key methods:**
-- `BigDecimal calculateCharge(ParkingTicket ticket)` — Compute fee
-- `PricingRule findApplicableRule(ParkingTicket ticket)` — Select applicable pricing rule
-- `Payment processPayment(ParkingTicket ticket, PaymentMethod method)` — Execute payment
-- `Invoice generateInvoice(ParkingTicket ticket)` — Create receipt
-
-**Scope:**
-- Pricing calculations
-- Payment processing
-- Checkout billing workflow
-
----
-
-### 4.5 PricingRuleService / PricingPolicyService
-**Admin-facing pricing logic.**
-
-**Responsibilities:**
-- Load active rules from configuration
-- Evaluate rules based on spot type, duration, vehicle type, etc.
-- Determine the final charge calculation strategy
-
-**Key methods:**
-- `List<PricingRule> getActiveRulesForLot(String lotId)` — Fetch all active rules
-- `PricingRule findMatchingRule(Vehicle vehicle, ParkingSpot spot, Duration duration)` — Select best rule
-- `boolean validateRule(PricingRule rule)` — Check rule validity
-- `void activateRule(String ruleId)` — Enable rule
-- `void deactivateRule(String ruleId)` — Disable rule
-
-**Scope:**
-- Rule selection and evaluation
-- Admin-controlled business policy
-
----
-
-### 4.6 CheckoutService
-**Responsible for final vehicle exit workflow.**
-
-**Responsibilities:**
-- Finalize ticket
-- Trigger payment calculation
-- Complete payment
-- Free parking spot
-- Create history entries
-
-**Key methods:**
-- `void checkoutVehicle(String ticketId, PaymentMethod method)` — Complete exit
-- `void closeSession(ParkingTicket ticket)` — Mark ticket as closed
-- `void releaseSpotForTicket(ParkingTicket ticket)` — Free up spot
-
-**Scope:**
-- Orchestrates exit and settlement
-- Works as a coordinator service, not a primitive business rule calculator
-
----
-
-### 4.7 AdminConfigurationService
-**Responsible for admin operations.**
-
-**Responsibilities:**
-- Create/update pricing rules
-- Enable/disable pricing configuration
-- Set default currency and policies for a parking lot
-- Manage rule versioning or activation windows
-
-**Key methods:**
-- `PricingRule createRule(PricingRule rule)` — Add new rule
-- `PricingRule updateRule(String ruleId, PricingRule updates)` — Modify rule
-- `void activateRule(String ruleId)` — Enable rule
-- `void deactivateRule(String ruleId)` — Disable rule
-- `AdminConfiguration getConfigForLot(String lotId)` — Fetch config
-
-**Scope:**
-- Admin lifecycle management
-- Ensures all payment logic remains configurable externally
-
----
-
 ## 5. Recommended Layered Structure
 
-```
+```text
 parkinglot-system/
 ├── src/
 │   ├── main/
@@ -390,64 +267,19 @@ parkinglot-system/
 │   │       └── com/
 │   │           └── parkinglot/
 │   │               ├── config/
-│   │               │   └── AppConfig.java
 │   │               ├── controller/
-│   │               │   ├── ParkingController.java
-│   │               │   └── AdminController.java
 │   │               ├── dto/
-│   │               │   ├── ParkingRequestDTO.java
-│   │               │   ├── CheckoutRequestDTO.java
-│   │               │   └── PricingRuleDTO.java
 │   │               ├── enums/
-│   │               │   ├── SpotType.java
-│   │               │   ├── VehicleType.java
-│   │               │   ├── PaymentStatus.java
-│   │               │   ├── PaymentMethod.java
-│   │               │   └── TicketStatus.java
 │   │               ├── exception/
-│   │               │   ├── ParkingLotException.java
-│   │               │   ├── NoSpotAvailableException.java
-│   │               │   └── InvalidPaymentException.java
 │   │               ├── model/
-│   │               │   ├── ParkingLot.java
-│   │               │   ├── ParkingFloor.java
-│   │               │   ├── ParkingSpot.java
-│   │               │   ├── Vehicle.java
-│   │               │   ├── ParkingTicket.java
-│   │               │   ├── Payment.java
-│   │               │   ├── PricingRule.java
-│   │               │   ├── AdminConfiguration.java
-│   │               │   └── Invoice.java
+│   │               │   └── ParkingLotModel.java
 │   │               ├── repository/
-│   │               │   ├── ParkingLotRepository.java
-│   │               │   ├── ParkingSpotRepository.java
-│   │               │   ├── VehicleRepository.java
-│   │               │   ├── ParkingTicketRepository.java
-│   │               │   ├── PaymentRepository.java
-│   │               │   ├── PricingRuleRepository.java
-│   │               │   └── AdminConfigRepository.java
 │   │               ├── service/
-│   │               │   ├── ParkingLotService.java
-│   │               │   ├── ParkingSpotManager.java
-│   │               │   ├── TicketService.java
-│   │               │   ├── PaymentService.java
-│   │               │   ├── PricingRuleService.java
-│   │               │   ├── CheckoutService.java
-│   │               │   └── AdminConfigurationService.java
 │   │               └── util/
-│   │                   ├── DateUtil.java
-│   │                   └── ValidationUtil.java
 │   └── test/
 │       └── java/
 │           └── com/
 │               └── parkinglot/
-│                   ├── service/
-│                   │   ├── ParkingLotServiceTest.java
-│                   │   ├── PaymentServiceTest.java
-│                   │   ├── PricingRuleServiceTest.java
-│                   │   └── CheckoutServiceTest.java
-│                   └── model/
-│                       └── [Model unit tests]
 ├── pom.xml
 └── README.md
 ```
@@ -456,12 +288,11 @@ parkinglot-system/
 
 ## 6. Relationship Summary
 
-```
+```text
 ParkingLot 1 ──→ many ─── ParkingFloor
 ParkingFloor 1 ──→ many ─── ParkingSpot
 Vehicle 1 ──→ many ─── ParkingTicket
 ParkingSpot 1 ──→ many ─── ParkingTicket (historically)
-                           (only 1 active at a time)
 ParkingTicket 1 ──→ 1 ─── Payment
 ParkingLot 1 ──→ many ─── PricingRule
 ParkingLot 1 ──→ 1 ─── AdminConfiguration
@@ -535,11 +366,10 @@ This plan sets the foundation for the next phases:
 ## 11. Summary
 
 This design plan provides:
-✅ Clear domain model with 8 main entity classes  
-✅ 7 service classes with well-defined responsibilities  
-✅ Folder structure following Java/Maven conventions  
-✅ Support for admin-configurable pricing rules  
-✅ Extensible architecture for future enhancements  
-✅ Scalable data flow from entry to exit  
+✅ Clear domain model with main entity classes
+✅ Structured folder layout for Java/Maven
+✅ Support for admin-configurable pricing rules
+✅ Extensible architecture for future enhancements
+✅ Scalable data flow from entry to exit
 
-Ready for Step 1 review and your feedback.
+Ready for the next review step.
